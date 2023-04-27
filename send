@@ -1,0 +1,39 @@
+import cloud from '@lafjs/cloud'
+
+const db = cloud.database()
+
+export async function main(ctx: FunctionContext) {
+
+  const data = ctx.body
+
+  if (!data.access_token) {
+    return { code: 1, errMsg: '请先登录！' };
+  }
+
+  let res0 = await db.collection('token').where({ token: data.access_token }).getOne();
+
+  if (!res0.ok || (res0.ok && res0.data.expire < Date.now())) {
+    return { code: 2, errMsg: '登录已失效，请先登录' };
+  }
+
+  const { ChatGPTAPI } = await import('chatgpt')
+
+  // 这里需要把 api 对象放入 cloud.shared 不然无法追踪上下文
+  let api = cloud.shared.get('api');
+  if (!api) {
+    api = new ChatGPTAPI({ apiKey: cloud.env.CHAT_GPT_API_KEY })
+    cloud.shared.set('api', api)
+  }
+
+  db.collection('log').add({ msg:data.message, create: new Date() });
+
+
+  let res
+  // 这里前端如果传过来 parentMessageId 则代表需要追踪上下文
+  if (!data.parentMessageId) {
+    res = await api.sendMessage(data.message)
+  } else {
+    res = await api.sendMessage(data.message, { parentMessageId: data.parentMessageId })
+  }
+  return res
+}

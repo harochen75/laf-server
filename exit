@@ -1,0 +1,17 @@
+import cloud from '@lafjs/cloud'
+
+const db = cloud.database()
+
+export async function main(ctx: FunctionContext) {
+
+  const data = ctx.body;
+
+  if (!data.access_token) {
+    return { code: 0, errMsg: 'access_token empty' };
+  }
+
+  let res = await db.collection('account').where({ token: data.access_token}).remove();
+  return {
+    code: 1
+  };
+}

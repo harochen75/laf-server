@@ -1,0 +1,14 @@
+import cloud from '@lafjs/cloud'
+import axios from 'axios'
+
+export async function main(ctx: FunctionContext) {
+  try {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cloud.env.CHAT_GPT_API_KEY}` }
+    const response = await axios.get('https://api.openai.com/dashboard/billing/credit_grants', { headers })
+    const balance = response.data.total_available ?? 0
+    return Promise.resolve(balance.toFixed(3))
+  }
+  catch {
+    return Promise.resolve('-')
+  }
+}

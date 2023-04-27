@@ -1,0 +1,38 @@
+import cloud from '@lafjs/cloud'
+const { v4: uuidv4 } = require('uuid');
+
+const db = cloud.database()
+
+export async function main(ctx: FunctionContext) {
+
+  const data = ctx.body;
+
+  if (!data.phone || !data.password || !data.inviteCode) {
+    return { code: 0, errMsg: '参数错误' };
+  }
+
+  let res = await db.collection('invite').where({ code: data.inviteCode, num: 0 }).count();
+
+  if (!res.ok || (res.ok && res.total <= 0)) {
+    return { code: 2, errMsg: '邀请码错误或已使用过' };
+  }
+
+  res = await db.collection('account').where({ phone: data.phone }).count();
+
+  if (!res.ok || (res.ok && res.total > 0)) {
+    return { code: 2, errMsg: '该账号已注册过' };
+  }
+
+  let strUUID = uuidv4();
+  // let strUUID2 = strUUID.replace(/-/g, '');       // 去掉-字符，使用空格代替
+
+  const insertRes = await db.collection('account').add({ phone: data.phone, password: data.password, code: data.code, create: Date.now() })
+  if (insertRes.ok) {
+    await db.collection('invite').where({ code: data.inviteCode, num: 0 }).update({ num: 1 });
+    await db.collection('token').add({ phone: data.phone, token: strUUID, create: Date.now(), expire: 2 * Date.now() + 60 * 60 * 1000 * 1000 });
+    return { code: 1, data: { access_token: strUUID } };
+  } else {
+    console.error(insertRes.error);
+    return { code: 0, errMsg: '注册失败' };
+  }
+}
